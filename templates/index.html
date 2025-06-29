@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Event Scheduler</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .container {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 800px; /* Increased max-width */
+            margin-bottom: 20px;
+        }
+        h2 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: bold;
+        }
+        input[type="text"],
+        input[type="datetime-local"],
+        input[type="email"],
+        textarea {
+            width: calc(100% - 22px); /* Adjust for padding and border */
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            margin-right: 10px; /* For buttons in event list */
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .form-buttons button {
+            width: auto;
+            margin-right: 0;
+        }
+        .form-buttons {
+            display: flex;
+            justify-content: space-between;
+        }
+        #responseMessage {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 4px;
+            text-align: center;
+            display: none;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        /* Event List Styles */
+        #eventListContainer {
+            margin-top: 30px;
+        }
+        #eventsTable {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        #eventsTable th, #eventsTable td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        #eventsTable th {
+            background-color: #007bff;
+            color: white;
+            font-weight: bold;
+        }
+        #eventsTable tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        .event-actions button {
+            margin-right: 5px;
+            padding: 6px 10px;
+            font-size: 14px;
+        }
+        .event-actions .update-btn {
+            background-color: #ffc107;
+            color: #333;
+        }
+        .event-actions .update-btn:hover {
+            background-color: #e0a800;
+        }
+        .event-actions .delete-btn {
+            background-color: #dc3545;
+        }
+        .event-actions .delete-btn:hover {
+            background-color: #c82333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2 id="formTitle">Add New Event</h2>
+        <form id="eventForm">
+            <input type="hidden" id="eventId" name="id">
+            <div class="form-group">
+                <label for="title">Event Title:</label>
+                <input type="text" id="title" name="title" required>
+            </div>
+            <div class="form-group">
+                <label for="description">Description:</label>
+                <textarea id="description" name="description"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="startTime">Start Time:</label>
+                <input type="datetime-local" id="startTime" name="startTime" required>
+            </div>
+            <div class="form-group">
+                <label for="endTime">End Time:</label>
+                <input type="datetime-local" id="endTime" name="endTime" required>
+            </div>
+            <div class="form-group">
+                <label for="recurrence">Recurrence:</label>
+                <select id="recurrence" name="recurrence">
+                    <option value="none">None</option>
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="email">Notification Email (optional):</label>
+                <input type="email" id="email" name="email" placeholder="your@email.com">
+            </div>
+            <div class="form-buttons">
+                <button type="submit" id="submitBtn">Add Event</button>
+                <button type="button" id="cancelUpdateBtn" style="display: none;">Cancel Update</button>
+            </div>
+        </form>
+        <div id="responseMessage"></div>
+    </div>
+
+    <div class="container" id="eventSearchContainer">
+        <h2>Search Events</h2>
+        <form id="searchForm" style="display: flex; gap: 10px; margin-bottom: 20px;">
+            <input type="text" id="searchQuery" placeholder="Search by title or description" style="flex: 1; padding: 8px; font-size: 16px;">
+            <button type="submit">Search</button>
+            <button type="button" id="clearSearchBtn">Clear</button>
+        </form>
+    </div>
+
+    <div class="container" id="eventListContainer">
+        <h2>All Scheduled Events</h2>
+        <button onclick="fetchAllEvents()">Refresh Events</button>
+        <table id="eventsTable">
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Description</th>
+                    <th>Start Time</th>
+                    <th>End Time</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="eventsTableBody">
+                <tr>
+                    <td colspan="5" style="text-align: center;">Loading events...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://127.0.0.1:5000/events';
+        const eventForm = document.getElementById('eventForm');
+        const formTitle = document.getElementById('formTitle');
+        const submitBtn = document.getElementById('submitBtn');
+        const cancelUpdateBtn = document.getElementById('cancelUpdateBtn');
+        const responseMessage = document.getElementById('responseMessage');
+        const eventsTableBody = document.getElementById('eventsTableBody');
+
+        // Function to display messages (success/error)
+        function showMessage(message, type) {
+            responseMessage.textContent = message;
+            responseMessage.className = type;
+            responseMessage.style.display = 'block';
+            setTimeout(() => {
+                responseMessage.style.display = 'none';
+            }, 5000);
+        }
+
+        // --- FETCH ALL EVENTS (Event Listing) ---
+        async function fetchAllEvents() {
+            eventsTableBody.innerHTML = '<tr><td colspan="5" style="text-align: center;">Loading events...</td></tr>';
+            try {
+                const response = await fetch(API_BASE_URL);
+                let events = await response.json();
+
+                eventsTableBody.innerHTML = ''; // Clear existing rows
+
+                if (events.length === 0) {
+                    eventsTableBody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No events scheduled yet.</td></tr>';
+                    return;
+                }
+
+                // Show latest event at the top
+                events.reverse();
+
+                events.forEach(event => {
+                    const row = eventsTableBody.insertRow();
+                    row.insertCell(0).textContent = event.title;
+                    row.insertCell(1).textContent = event.description;
+                    // Format datetime for better readability
+                    row.insertCell(2).textContent = new Date(event.start_time).toLocaleString();
+                    row.insertCell(3).textContent = new Date(event.end_time).toLocaleString();
+
+                    const actionsCell = row.insertCell(4);
+                    actionsCell.className = 'event-actions';
+
+                    const updateButton = document.createElement('button');
+                    updateButton.textContent = 'Update';
+                    updateButton.className = 'update-btn';
+                    updateButton.onclick = () => populateFormForUpdate(event);
+                    actionsCell.appendChild(updateButton);
+
+                    const deleteButton = document.createElement('button');
+                    deleteButton.textContent = 'Delete';
+                    deleteButton.className = 'delete-btn';
+                    deleteButton.onclick = () => deleteEvent(event.id);
+                    actionsCell.appendChild(deleteButton);
+                });
+            } catch (error) {
+                console.error('Error fetching events:', error);
+                eventsTableBody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: red;">Failed to load events. API might be down.</td></tr>';
+                showMessage('Failed to load events. Check console for details.', 'error');
+            }
+        }
+
+        // --- SEARCH EVENTS (Event Searching) ---
+        const searchForm = document.getElementById('searchForm');
+        const searchQueryInput = document.getElementById('searchQuery');
+        const clearSearchBtn = document.getElementById('clearSearchBtn');
+
+        searchForm.addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const query = searchQueryInput.value.trim();
+            if (!query) {
+                showMessage('Please enter a search query.', 'error');
+                return;
+            }
+            eventsTableBody.innerHTML = '<tr><td colspan="5" style="text-align: center;">Searching events...</td></tr>';
+            try {
+                const response = await fetch(`${API_BASE_URL}/search?query=${encodeURIComponent(query)}`);
+                let events = await response.json();
+                eventsTableBody.innerHTML = '';
+                if (events.length === 0) {
+                    eventsTableBody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No matching events found.</td></tr>';
+                    return;
+                }
+                // Show latest event at the top in search results too
+                events.reverse();
+                events.forEach(event => {
+                    const row = eventsTableBody.insertRow();
+                    row.insertCell(0).textContent = event.title;
+                    row.insertCell(1).textContent = event.description;
+                    row.insertCell(2).textContent = new Date(event.start_time).toLocaleString();
+                    row.insertCell(3).textContent = new Date(event.end_time).toLocaleString();
+                    const actionsCell = row.insertCell(4);
+                    actionsCell.className = 'event-actions';
+                    const updateButton = document.createElement('button');
+                    updateButton.textContent = 'Update';
+                    updateButton.className = 'update-btn';
+                    updateButton.onclick = () => populateFormForUpdate(event);
+                    actionsCell.appendChild(updateButton);
+                    const deleteButton = document.createElement('button');
+                    deleteButton.textContent = 'Delete';
+                    deleteButton.className = 'delete-btn';
+                    deleteButton.onclick = () => deleteEvent(event.id);
+                    actionsCell.appendChild(deleteButton);
+                });
+            } catch (error) {
+                console.error('Error searching events:', error);
+                eventsTableBody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: red;">Failed to search events.</td></tr>';
+                showMessage('Failed to search events. Check console for details.', 'error');
+            }
+        });
+
+        clearSearchBtn.addEventListener('click', function() {
+            searchQueryInput.value = '';
+            fetchAllEvents();
+        });
+
+        // --- SUBMIT (ADD/UPDATE) EVENT (Event Creation & Event Updating) ---
+        eventForm.addEventListener('submit', async function(event) {
+            event.preventDefault();
+
+            const eventId = document.getElementById('eventId').value;
+            const title = document.getElementById('title').value;
+            const description = document.getElementById('description').value;
+            let startTime = document.getElementById('startTime').value;
+            let endTime = document.getElementById('endTime').value;
+            const recurrence = document.getElementById('recurrence').value;
+            const email = document.getElementById('email').value;
+
+            // Ensure datetime-local format 'YYYY-MM-DDTHH:MM' includes seconds for API 'YYYY-MM-DDTHH:MM:SS'
+            if (startTime && startTime.length === 16) { startTime += ':00'; }
+            if (endTime && endTime.length === 16) { endTime += ':00'; }
+
+            const eventData = {
+                title: title,
+                description: description,
+                start_time: startTime,
+                end_time: endTime,
+                recurrence: recurrence,
+                email: email
+            };
+
+            let url = API_BASE_URL;
+            let method = 'POST';
+            let successMessage = 'Event created successfully!';
+            let errorMessage = 'Error creating event:';
+
+            if (eventId) { // If eventId exists, it's an update operation
+                url = `${API_BASE_URL}/${eventId}`;
+                method = 'PUT';
+                successMessage = 'Event updated successfully!';
+                errorMessage = 'Error updating event:';
+            }
+
+            try {
+                const response = await fetch(url, {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(eventData)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showMessage(successMessage + (result.id ? ` ID: ${result.id}` : ''), 'success');
+                    eventForm.reset();
+                    resetFormToCreateMode(); // Switch back to Add mode
+                    fetchAllEvents(); // Refresh the list
+                } else {
+                    showMessage(errorMessage + (result.error || 'Unknown error.'), 'error');
+                }
+            } catch (error) {
+                console.error('Network error during event submission:', error);
+                showMessage('Network error or API is not running: ' + error.message, 'error');
+            }
+        });
+
+        // --- DELETE EVENT (Event Deletion) ---
+        async function deleteEvent(id) {
+            if (!confirm('Are you sure you want to delete this event?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/${id}`, {
+                    method: 'DELETE'
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showMessage('Event deleted successfully!', 'success');
+                    fetchAllEvents(); // Refresh the list
+                } else {
+                    showMessage('Error deleting event: ' + (result.error || 'Unknown error.'), 'error');
+                }
+            } catch (error) {
+                console.error('Network error during event deletion:', error);
+                showMessage('Network error or API is not running: ' + error.message, 'error');
+            }
+        }
+
+        // --- PREPARE FORM FOR UPDATE (Helper for Event Updating) ---
+        function populateFormForUpdate(event) {
+            document.getElementById('eventId').value = event.id;
+            document.getElementById('title').value = event.title;
+            document.getElementById('description').value = event.description;
+            document.getElementById('startTime').value = event.start_time.substring(0, 16);
+            document.getElementById('endTime').value = event.end_time.substring(0, 16);
+            document.getElementById('recurrence').value = event.recurrence || 'none';
+            document.getElementById('email').value = event.email || '';
+
+            formTitle.textContent = 'Update Event';
+            submitBtn.textContent = 'Update Event';
+            cancelUpdateBtn.style.display = 'inline-block'; // Show cancel button
+            window.scrollTo({ top: 0, behavior: 'smooth' }); // Scroll to top
+        }
+
+        // --- RESET FORM TO ADD MODE (Helper for Event Creation/Updating) ---
+        function resetFormToCreateMode() {
+            eventForm.reset();
+            document.getElementById('eventId').value = ''; // Clear hidden ID
+            formTitle.textContent = 'Add New Event';
+            submitBtn.textContent = 'Add Event';
+            cancelUpdateBtn.style.display = 'none'; // Hide cancel button
+        }
+
+        // Add event listener for cancel button
+        cancelUpdateBtn.addEventListener('click', resetFormToCreateMode);
+
+
+        // --- Load events when the page loads ---
+        document.addEventListener('DOMContentLoaded', fetchAllEvents);
+    </script>
+</body>
+</html>
