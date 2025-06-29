@@ -24,7 +24,7 @@ A simple web-based event scheduler with RESTful API, built using Flask (Python) 
 
 1. **Clone the repository:**
    ```bash
-   git clone <your-repo-url>
+   git clone https://github.com/Rashi290/Event-Scheduler-System
    cd event
    ```
 
